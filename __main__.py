@@ -1,26 +1,16 @@
-import logging
-from lark import Lark, logger
 
-logger.setLevel(logging.DEBUG)
-
-collision_grammar = '''
-
-start: graph
-graph : node (edge node|node_group)*
-node_group: "["node+"]"
-node: STRING
-edge: "-"STRING?">"  -> to
-    | "<"STRING?"-" -> from
-STRING: /\w/+
-%import common.WS
-%ignore WS
-%import common.WS_INLINE
-%ignore WS_INLINE
-'''
-
-p = Lark(collision_grammar, debug=True)
+from neo4j import GraphDatabase
 
 
-text = "Eikon -feeds> DMP -hosts> feed <likes- Martin"
-r = p.parse(text)
-print(r.pretty())
+
+
+if __name__ == "__main__":
+    uri,user, password  = ("bolt://localhost:7687", "neo4j", "admin")
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    query = """Match (n)-[r]->(m) Return n,r,m"""
+    with driver.session() as session:
+        res = session.run(query, name="marvin")
+        print("")
+
+
+q = """MATCH (a:Person {name:"Doug"}) , (b:Person {name: "Marvin"}) CREATE (a) -[:'LOVES']-> (b)"""

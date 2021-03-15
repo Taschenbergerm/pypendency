@@ -23,7 +23,6 @@ class BaseNode(Generic[T]):
     compound: bool = False
     global_node: bool = False
     relations: List['Relation'] = None
-    nodes: List['BaseNode'] = None
 
     def __post_init__(self):
         from .graph import GraphContext
