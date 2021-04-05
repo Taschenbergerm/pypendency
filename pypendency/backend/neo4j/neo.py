@@ -85,7 +85,7 @@ class Neo4J(object):
         if not self.check_token(token):
             raise PermissionError(f"Token {token} is not registered ")
 
-        records = self.query_graphtoken()
+        records = self.query_graph()
         graph = self.transform_records_to_graph(records)
         return graph
 
