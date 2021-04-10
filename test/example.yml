@@ -1,5 +1,7 @@
-project: EQUS
-id: 72fc8e9b-e90b-4aec-9dbd-fdb5452558f0
+project:
+    name: EQUS
+    id: 72fc8e9b-e90b-4aec-9dbd-fdb5452558f0
+
 external:
     e1:
         id: a2f6caa8-14c1-40ab-9777-c5a57c0cc083
@@ -26,11 +28,10 @@ owned:
     r1:
         id: d61d2529-1e67-4c0a-b46c-a9f653f42a7f
         name: ServiceRestInterface
+        type: service
+        domain: internal
+        description: the restinterface to the data from the service
 
 
 relations:
-    - eqpi -> rest
-    - out  -> db      -> mysql
-    - conf -> eqs     -> fix  -> gig
-    - feed -> eqx     -> pub  -> gig
-    - egui -> erest   -> eqs  -> out  -> eqpi
+   - n1 <-Depends- n2 <-Depends- r1
