@@ -16,12 +16,10 @@ class Graph(object):
     relations: List[Relation] = None
 
     def __post_init__(self):
-        if not self.__old_context:
-            self.__old_context = []
-        if not self.statements:
-            self.statements = []
-        if not self.nodes:
-            self.nodes = []
+        self.__old_context = self.__old_context or []
+        self.statements = self.statements or []
+        self.nodes = self.nodes or []
+        self.relations = self.relations or []
 
     def append(self, node: BaseNode):
         self.nodes.append(node)
