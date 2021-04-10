@@ -19,6 +19,7 @@ class BaseNode(Generic[T]):
     type: str
     id: str
     description: str
+    domain: Optional[str] = ""
     graph: Optional[Graph] = None
     compound: bool = False
     external: bool = False
@@ -33,9 +34,6 @@ class BaseNode(Generic[T]):
 
         if not self.relations:
             self.relations = []
-
-        if not self.nodes:
-            self.nodes = []
 
     def edge_from(self, other: "BaseNode[T]", label: str):
         relation = Relation(
