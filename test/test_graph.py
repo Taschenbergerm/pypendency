@@ -1,6 +1,8 @@
 """Tests for `pypendency` package."""
 import uuid
 
+import pytest
+
 import pypendency.models.graph as pmg
 from pypendency.models.generics import BaseNode, Relation, Direction
 
@@ -13,8 +15,8 @@ def test_graph_context():
                         type="Service",
                         id=str(uuid.uuid4()),
                         description="a Testnode")
-        assert node.graph is not None
-    assert node == g.nodes.pop()
+        pytest.assume(node.graph)
+    pytest.assume(node == g.nodes.pop())
 
 
 def test_relation():
