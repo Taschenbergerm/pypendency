@@ -1,30 +1,11 @@
 import dataclasses
-from .generics import BaseNode
-from .generics import BaseInstance
-
-_CONTEXT_MANAGER_GRAPH = None
 
 
-class Service(BaseInstance):
-    ...
-
-
-class Source(BaseInstance):
-    ...
-
-
-class Storage(BaseInstance):
-    ...
-
-
-class Technology(BaseNode):
-    ...
-
-
-class FrameWork(BaseNode):
-    ...
-
-
-class Sink(BaseNode):
-    ...
-
+@dataclasses.dataclass(frozen=True)
+class NodeType:
+    service: str = "Service"
+    source: str = "Source"
+    storage: str = "Storage"
+    technology: str = "Technology"
+    FrameWork: str = "FrameWork"
+    sink: str = "Sink"
