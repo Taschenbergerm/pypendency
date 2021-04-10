@@ -1,15 +1,16 @@
 import uuid
 
+import pytest
 import pypendency.models.graph as pmg
 from pypendency.models.generics import BaseNode, Relation, Direction
 
-import pypendency.lark.lexer as lexer
-import pypendency.lark.transformer as transformer
+from pypendency.lexer.lark.core import Lexer
+import pypendency.lexer.lark.transformer as transformer
 
 
 def test_tranformer():
     raw_text = " n1 -> n2"
-    lex = lexer.Lexer()
+    lex = Lexer()
     raw_relations = lex.parse(raw_text)
     g = pmg.Graph(str(uuid.uuid4()))
     with g:
@@ -27,13 +28,13 @@ def test_tranformer():
     t = transformer.Transformer(graph=g)
     want = Relation(node1, node2, label="", direction=Direction.Injective)
     got = t.create_relations_from_raw_relations(raw_relations)
-    assert len(got) == 1
-    assert got[0] == want
+    pytest.assume(len(got) == 1)
+    pytest.assume( got[0] == want)
 
 
 def test_transformer_group():
     raw_text = " n1 -> [n2, n3]"
-    lex = lexer.Lexer()
+    lex = Lexer()
     raw_relations = lex.parse(raw_text)
     g = pmg.Graph(str(uuid.uuid4()))
     with g:
@@ -57,6 +58,6 @@ def test_transformer_group():
     want = Relation(node1, node2, label="", direction=Direction.Injective)
     want2 = Relation(node1, node3, label="", direction=Direction.Injective)
     got = t.create_relations_from_raw_relations(raw_relations)
-    assert len(got) == 2
-    assert got[0] == want
-    assert got[1] == want2
+    pytest.assume(len(got) == 2)
+    pytest.assume(got[0] == want)
+    pytest.assume(got[1] == want2)
