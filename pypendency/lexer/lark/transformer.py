@@ -17,9 +17,8 @@ class Transformer(object):
         self.graph = graph or None
         self.slug_map = {node.slug: node for node in graph.nodes} if graph else None
 
-    def set_graph(self, graph: pypendency.Graph):
-        self.graph = graph
-        self.slug_map = {node.slug: node for node in graph.nodes}
+    def set_nodes(self, nodes: List[pypendency.BaseNode]):
+        self.slug_map = {node.slug: node for node in nodes}
 
     def attache_relations(self, raw_relations: List[RawRelation]):
         relations = self.create_relations_from_raw_relations(raw_relations)
