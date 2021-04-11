@@ -1,130 +1,123 @@
-from typing import Dict, Tuple, List, Set, Iterable
-from typing import Type, TypeVar
+from typing import Tuple, List, Set, Optional, Dict, Callable, Iterable
 
-import neo4j
-from neo4j.graph import Node
-from pypendency import Graph, BaseNode, Relation
+from pypendency.models.generics import Graph, BaseNode, Relation
+from .cypher import CypherDialect, Credentials, graph_storage
 
 
-class GraphComparer:
-
-    def compare(self,g1: Graph, g2: Graph) -> Tuple[List[BaseNode], List[BaseNode], List[BaseNode]]:
-        ...
-
-    def check_for_new(self):
-        """
-        create a set of ids for each graph and check for any new ones
-        :return:
-        """
-    def check_for_deleted(self) -> Set[str]:
-        """
-        Check the sets of ids for delted ones
-        :return:
-        """
-    def transform_graph_to_set(self) -> Set[str]:
-        """
-        Transform a graph into a set of ids of its nodes and a set of relations
-        :return:
-        """
-
-    def filter_changed(self, ids: Iterable[str]) -> Set[str]:
-        """
-        Compares a set of nodes and filters the changed ones
-        :param ids:
-        :return:
-        """
-    def categorize(self):
-        """
-        Categorize the nodes or relations into changed, new and deleted
-        :return:
-        """
+def apply(func: Callable, iterable: Iterable, **kwargs):
+    for i in iterable:
+        func(i, **kwargs)
 
 
-T = TypeVar('T', bound='NeoNode')
+class Neo4jBackend(object):
+    """
+    Neo4jBackend is responsible for transforming a Graph with all its nodes and
+    relations to be transformed to cypher
 
+    1. Pull all nodes and relations defined in this
+    2. Check which nodes and relations do exists
+    3. Check for removed nodes and whether they are used
+    4. Merge Create all nodes
+    5. Update all nodes and overwrite attributes
+    6. CREATE nonexistent relationships
+    7. Update old relationships
+    """
 
-class NeoNode(object):
+    def __init__(self, graph: Graph, credentials: Credentials ):
+        self.graph = graph
+        self.creds = credentials
 
-    @classmethod
-    def from_basenode(cls: Type[T], node: BaseNode) -> T:
-        """ Creates a NeoNode from a Base node instance"""
+    def manifest(self, graph: Graph):
+        with graph_storage(self.creds) as db:
+            internal, external = self.split_nodes(graph)
+            exists = self.check_existence(graph.id, db)
+            non_existing_externals = self.check_external_nodes(external, db)
+            apply(self.create_node, non_existing_externals, db=db, temporary=True)
 
-    @classmethod
-    def from_record(cls: Type[T], node: neo4j.data.Record) -> T:
-        """ Creates a NeoNode from a neo4j.data.record """
-
-
-class NeoCredentials:
-    user: str
-    password: str
-    host: str
-    port: int
-    driver: str
-
-    def uri(self) -> str:
-        return ""
-
-
-class Neo4J(object):
-
-    def __init__(self, credentials: NeoCredentials):
-        self.driver = neo4j.GraphDatabase.driver(credentials.uri(), auth=(credentials.user, credentials.password))
-
-    def main(self, token: str):
-        """
-        Neo4j Backend Class will persist the graph in the backend
-        1.  Check that the token is valid
-        2.  Query all nodes defined by this graph and directly related nodes
-        3. Transform them into the BaseNode format
-        4. Create non-existing nodes
-        5. Updated nodes that already exists
-        6. Delete nodes
-
-        :return:
-        """
-        if not self.check_token(token):
-            raise PermissionError(f"Token {token} is not registered ")
-
-        records = self.query_graph()
-        graph = self.transform_records_to_graph(records)
-        return graph
-
-    def check_token(self, token):
-        query = "MATCH (t:Token {id: $token}  RETURN t"
-        records = self.query(query, token=token)
-        return len(records) > 0
-
-    def query_to_graph(self, token) -> Graph:
-        query = "MATCH (t {token: $token}) -[r]-> (n) RETURN t, r, n "
-        records = self.query(query, token=token)
-        graph = Graph(token)
-        with graph:
-            _ = self.create_nodes(records)
-        return graph
-
-    def create_nodes(self, records: neo4j.data.Record) -> Dict[str, BaseNode]:
-        node_dict: Dict[str, BaseNode] = {}
-        relationships = []
-        for r in records:
-            if r is Node:
-                node_type, = r.labels
-                node_dict[r["id"]] = BaseNode(name=r["name"],
-                                                slug=r["name"],
-                                                type=node_type,
-                                                id=r["id"],
-                                                )
+            if not exists:
+                apply(self.create_node, internal, db=db)
             else:
-                relationships.append(r)
+                self.compare(internal, graph, db)
 
-        for rel in relationships:
-            start_node_id = rel.start_node["id"]
-            end_node_id = rel.end_node["id"]
-            node_dict[start_node_id].link_to(node_dict[end_node_id], rel.type)
+            apply(self.merge_relation, graph.relations, db=db)
 
-        return node_dict
+    def compare(self,internal_node: List[BaseNode], graph: Graph, db):
+        remote_nodes, relations = self.query_owned(graph.id, db)
+        local_ids = {node.id: node for node in internal_node}
+        remote_ids = {node.id: node for node in remote_nodes}
+        new_nodes = local_ids.keys() - remote_ids.keys()
+        deleted_nodes = remote_nodes.keys() - local_ids.keys()
+        existing = set(local_ids.keys()).intersection(remote_ids.keys())
+        self.create_nodes(new_nodes, local_ids)
+        self.update_nodes(existing, local_ids)
+        apply(self.deleted_node, deleted_nodes, db=db)
 
-    def query(self, query, **kwargs) -> neo4j.data.Record:
-        with self.driver.session() as session:
-            res = session.run(query, **kwargs)
-            records = res.single()
-        return records
+    def query_owned(self, id: str, db) -> Tuple[Set, Set]:
+        result = self.query(CypherDialect.ALL_NODES, id=id)
+        node_ids = {res["n"]["id"] for res in result}
+        result = self.query(CypherDialect.NODES_AND_RELATIONS, id=id)
+        node_relations = {(res["n"]["id"], res["m"]["id"], res["r"][1]) for res in result }
+        return node_ids, node_relations
+
+    def check_existence(self, id: str, db) -> bool:
+        res = self.query(CypherDialect.GRAPH_EXIST, db, id=id)
+        return any(res)
+
+    def query_node(self, id: str, db):
+        query = "MATCH (n) WHERE n.id=$id and n.graph.id=$graph_id RETURN n"
+        res = self.query(query, db, graph_id=self.graph.id)
+        return res
+
+    def query_relation(self, from_id, to_id, db):
+        res = self.query(CypherDialect.NODES_AND_RELATIONS, db, from_id=from_id, to_id=to_id)
+        return res
+
+    def check_external_nodes(self, external: List[BaseNode], db) -> List[Optional[BaseNode]]:
+        non_existing = []
+        for node in external:
+            if not self.check_node_existence(node.id, db):
+                non_existing.append(node)
+        return non_existing
+
+    def check_node_existence(self, id: str, db):
+        res = self.query(CypherDialect.NODE_EXIST, db, id=id)
+        return any(res)
+
+    def create_node(self, node: BaseNode, db, temporary: bool = False):
+        query_kwargs = {"id": node.id, "name": node.id, "type": node.type, "domain": node.domain, "temporary": temporary}
+        self.query(CypherDialect.CREATE_NODE, db,query_kwargs )
+
+    def create_nodes(self, new_nodes: Set[str], local_ids: Dict[str, BaseNode], db):
+        for node_id in new_nodes:
+            self.create_node(local_ids[node_id], db)
+
+    def update_nodes(self, existing: Set[str], local_ids: Dict[str, BaseNode], db):
+        for node_id in existing:
+            self.update_node(local_ids[node_id], db)
+
+    def update_node(self, node: BaseNode, db):
+        update_kwargs = {"id": node.id, "description": node.description, "expose":node.expose}
+        self.query(CypherDialect.UPDATE_NODE, db, update_kwargs)
+
+    def deleted_node(self, node_id, db):
+        delete_kwargs = {"id": node_id}
+        self.query(CypherDialect.DELETE_NODE, db, delete_kwargs)
+
+    def merge_relation(self, relation: Relation, db):
+        merge_kwargs ={"from_id": relation.origin.id, "to_id": relation.destination.id}
+        self.query(CypherDialect.MERGE_RELATION, db,merge_kwargs)
+
+    @staticmethod
+    def query(self, query: str, db, **kwargs):
+        res = db.run(query,**kwargs)
+        return res.data()
+
+    @staticmethod
+    def split_nodes(graph) -> Tuple[List[BaseNode], List[BaseNode]]:
+        internal = external = []
+        for node in graph.nodes:
+            if node.external:
+                external.append(node)
+            else:
+                internal.append(node)
+        return internal, external
