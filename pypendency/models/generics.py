@@ -21,8 +21,8 @@ class BaseNode(Generic[T]):
     description: str
     domain: Optional[str] = ""
     graph: Optional[Graph] = None
-    compound: bool = False
     external: bool = False
+    expose: bool = False
     relations: List["Relation"] = None
 
     def __post_init__(self):
@@ -75,7 +75,7 @@ class Relation(object):
         return f"{self.origin} -{self.label}:{self.direction}- {self.destination}"
 
     def __hash__(self):
-        return hash(self.__repr__)
+        return hash(self.__repr__())
 
 
 @dataclasses.dataclass()
