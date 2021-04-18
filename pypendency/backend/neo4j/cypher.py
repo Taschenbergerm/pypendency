@@ -1,19 +1,16 @@
 import contextlib
 import dataclasses
-from typing import Tuple, List, Set, Optional, Dict
 
 import neo4j
-
-from pypendency.models.generics import Graph, BaseNode, Relation
 
 
 @dataclasses.dataclass(frozen=True)
 class CypherDialect:
-    GRAPH_EXIST = "MATCH (n:Graph) where n.id =$id"
+    GRAPH_EXIST = "MATCH (n) where n.project_id =$id"
     NODE_EXIST = "MATCH (n) WHERE n.id = $id RETURN n"
-    NODES_AND_RELATIONS = "MATCH (g: Graph {id: $id}) -->(n)-[r]->(m) RETURN n,r,m"
-    ALL_NODES = "MATCH (g: Graph {id: $id}) -->(n)-[r]->(m) RETURN n"
-    ALL_RELATIONS = "MATCH (g: Graph {id: $id}) -->(n)-[r]->(m) RETURN r"
+    NODES_AND_RELATIONS = "MATCH (n {project_id: $id})-[r]->(m) RETURN n,r,m"
+    ALL_NODES = "MATCH (n {project_id: $id}), (n)-->(m) RETURN n, m "
+    ALL_RELATIONS = "MATCH (n {project_id: $id})-[r]->(m) RETURN r"
     UPDATE_NODE = "MATCH (n) WHERE n.id = $id SET n.description = $description, n.expose = $expose"
     DELETE_NODE = "MATCH (n) WHERE n.id = $id DELETE n"
     DETACH_NODE = "MATCH (n) WHERE n.id = $id DETACH DELETE n"
@@ -32,9 +29,10 @@ class Credentials:
 @contextlib.contextmanager
 def graph_storage(creds: Credentials):
     driver = neo4j.GraphDatabase.driver(creds.uri,
-                                        auth=(creds.user,creds.password))
+                                        auth=(creds.user,
+                                              creds.password)
+                                        )
     try:
-
         with driver.session() as tx:
             yield tx
     finally:

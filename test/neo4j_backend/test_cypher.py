@@ -12,24 +12,6 @@ class FakeGraph:
     id = "g1"
 
 
-@pytest.fixture()
-def backend_instance(prepared_container):
-    creds = Credentials(uri=f"bolt://localhost:{prepared_container.get_exposed_port(prepared_container.bolt_port)}",
-                        user=prepared_container.NEO4J_USER,
-                        password=prepared_container.NEO4J_ADMIN_PASSWORD)
-    neo = Neo4jBackend(FakeGraph, creds)
-    return neo
-
-
-@pytest.fixture()
-def db(prepared_container):
-    creds = Credentials(uri=f"bolt://localhost:{prepared_container.get_exposed_port(prepared_container.bolt_port)}",
-                        user=prepared_container.NEO4J_USER,
-                        password=prepared_container.NEO4J_ADMIN_PASSWORD)
-    with graph_storage(creds) as db:
-        yield db
-
-
 def test_query(prepared_container):
     creds = Credentials(uri=f"bolt://localhost:{prepared_container.get_exposed_port(prepared_container.bolt_port)}",
                         user=prepared_container.NEO4J_USER,
@@ -104,6 +86,15 @@ def test_cypher_queries_all_relations(project_id, want, backend_instance, db):
 
 
 def test_cypher_queries_update_node(node_id, want, backend_instance, db):
+    node_id = "g1-n1"
+    want = "Updated Desc"
+    backend_instance.query(CypherDialect.UPDATE_NODE, db, id=node_id, description=want, expose="true")
+    res = backend_instance.query("MATCH (n {id:$id}) RETURN n ", db, id=node_id)
+    new_desc = res[0]["n"]["description"]
+    pytest.assume(new_desc == want)
+
+
+def test_cypher_queries_delete_node(node_id, want, backend_instance, db):
     node_id = "g1-n1"
     want = "Updated Desc"
     backend_instance.query(CypherDialect.UPDATE_NODE, db, id=node_id, description=want, expose="true")

@@ -53,11 +53,19 @@ class Neo4jBackend(object):
         apply(self.deleted_node, deleted_nodes, db=db)
 
     def query_owned(self, id: str, db) -> Tuple[Set, Set]:
-        result = self.query(CypherDialect.ALL_NODES, id=id)
-        node_ids = {res["n"]["id"] for res in result}
-        result = self.query(CypherDialect.NODES_AND_RELATIONS, id=id)
+        result = self.query(CypherDialect.ALL_NODES, db, id=id)
+        node_ids = self.__unwrapp_nodes(result)
+        result = self.query(CypherDialect.NODES_AND_RELATIONS, db, id=id)
         node_relations = {(res["n"]["id"], res["m"]["id"], res["r"][1]) for res in result }
         return node_ids, node_relations
+
+    def __unwrapp_nodes(self, iterable: List[Dict[str,str]]) -> Set[str]:
+        nodes = {}
+        for i in iterable:
+            for item in i.items():
+                if item:
+                    nodes[item[1]["id"]] = item[1]
+        return nodes
 
     def check_existence(self, id: str, db) -> bool:
         res = self.query(CypherDialect.GRAPH_EXIST, db, id=id)
@@ -108,7 +116,7 @@ class Neo4jBackend(object):
         self.query(CypherDialect.MERGE_RELATION, db,merge_kwargs)
 
     @staticmethod
-    def query(self, query: str, db, **kwargs):
+    def query(query: str, db, **kwargs):
         res = db.run(query,**kwargs)
         return res.data()
 
