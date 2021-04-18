@@ -1,6 +1,5 @@
 import dataclasses
-from typing import List, Optional, TypeVar
-
+from typing import List, Optional, TypeVar, Set
 
 Statement = TypeVar("Statement")
 BaseNode = TypeVar("BaseNode")
@@ -12,20 +11,23 @@ class Graph(object):
     id: str
     __old_context: List = None
     statements: List[Statement] = None
-    nodes: List[BaseNode] = None
-    relations: List[Relation] = None
+    nodes: Set[BaseNode] = None
+    relations: Set[Relation] = None
 
     def __post_init__(self):
         self.__old_context = self.__old_context or []
         self.statements = self.statements or []
-        self.nodes = self.nodes or []
-        self.relations = self.relations or []
+        self.nodes = self.nodes or set()
+        self.relations = self.relations or set()
 
     def append(self, node: BaseNode):
-        self.nodes.append(node)
+        self.nodes.add(node)
 
-    def attach_relations(self, relations: List[Relation]):
-        self.relations.append(relations)
+    def attach_relations(self, relations: Set[Relation]):
+        self.relations = self.relations.union(relations)
+
+    def attach_relation(self, relation: Relation):
+        self.relations.add(relation)
 
     def __enter__(self):
         GraphContext.push_context_managed_graph(self)
