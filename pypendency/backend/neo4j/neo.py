@@ -23,8 +23,7 @@ class Neo4jBackend(object):
     7. Update old relationships
     """
 
-    def __init__(self, graph: Graph, credentials: Credentials ):
-        self.graph = graph
+    def __init__(self, credentials: Credentials ):
         self.creds = credentials
 
     def manifest(self, graph: Graph):
@@ -54,12 +53,13 @@ class Neo4jBackend(object):
 
     def query_owned(self, id: str, db) -> Tuple[Set, Set]:
         result = self.query(CypherDialect.ALL_NODES, db, id=id)
-        node_ids = self.__unwrapp_nodes(result)
+        node_ids = self.__unwrap_nodes(result)
         result = self.query(CypherDialect.NODES_AND_RELATIONS, db, id=id)
         node_relations = {(res["n"]["id"], res["m"]["id"], res["r"][1]) for res in result }
         return node_ids, node_relations
 
-    def __unwrapp_nodes(self, iterable: List[Dict[str,str]]) -> Set[str]:
+    @staticmethod
+    def __unwrap_nodes(iterable: List[Dict[str, str]]) -> Set[str]:
         nodes = {}
         for i in iterable:
             for item in i.items():
@@ -70,15 +70,6 @@ class Neo4jBackend(object):
     def check_existence(self, id: str, db) -> bool:
         res = self.query(CypherDialect.GRAPH_EXIST, db, id=id)
         return any(res)
-
-    def query_node(self, id: str, db):
-        query = "MATCH (n) WHERE n.id=$id and n.graph.id=$graph_id RETURN n"
-        res = self.query(query, db, graph_id=self.graph.id)
-        return res
-
-    def query_relation(self, from_id, to_id, db):
-        res = self.query(CypherDialect.NODES_AND_RELATIONS, db, from_id=from_id, to_id=to_id)
-        return res
 
     def check_external_nodes(self, external: List[BaseNode], db) -> List[Optional[BaseNode]]:
         non_existing = []
@@ -92,8 +83,9 @@ class Neo4jBackend(object):
         return any(res)
 
     def create_node(self, node: BaseNode, db, temporary: bool = False):
-        query_kwargs = {"id": node.id, "name": node.id, "type": node.type, "domain": node.domain, "temporary": temporary}
-        self.query(CypherDialect.CREATE_NODE, db,query_kwargs )
+        query_kwargs = {"id": node.id, "name": node.name, "expose": node.expose, "domain": node.domain, "temporary": temporary}
+        cql = CypherDialect.CREATE_NODE.substitute(type=node.type)
+        self.query(cql, db, **query_kwargs)
 
     def create_nodes(self, new_nodes: Set[str], local_ids: Dict[str, BaseNode], db):
         for node_id in new_nodes:
@@ -105,15 +97,15 @@ class Neo4jBackend(object):
 
     def update_node(self, node: BaseNode, db):
         update_kwargs = {"id": node.id, "description": node.description, "expose":node.expose}
-        self.query(CypherDialect.UPDATE_NODE, db, update_kwargs)
+        self.query(CypherDialect.UPDATE_NODE, db, **update_kwargs)
 
     def deleted_node(self, node_id, db):
         delete_kwargs = {"id": node_id}
-        self.query(CypherDialect.DELETE_NODE, db, delete_kwargs)
+        self.query(CypherDialect.DELETE_NODE, db, **delete_kwargs)
 
     def merge_relation(self, relation: Relation, db):
         merge_kwargs ={"from_id": relation.origin.id, "to_id": relation.destination.id}
-        self.query(CypherDialect.MERGE_RELATION, db,merge_kwargs)
+        self.query(CypherDialect.MERGE_RELATION, db, **merge_kwargs)
 
     @staticmethod
     def query(query: str, db, **kwargs):
@@ -122,10 +114,20 @@ class Neo4jBackend(object):
 
     @staticmethod
     def split_nodes(graph) -> Tuple[List[BaseNode], List[BaseNode]]:
-        internal = external = []
+        internal = []
+        external = []
         for node in graph.nodes:
             if node.external:
                 external.append(node)
             else:
                 internal.append(node)
         return internal, external
+
+    # def query_relation(self, from_id, to_id, db):
+    #     res = self.query(CypherDialect.NODES_AND_RELATIONS, db, from_id=from_id, to_id=to_id)
+    #     return res
+
+    # def query_node(self, id: str, db):
+    #     query = "MATCH (n) WHERE n.id=$id and n.graph.id=$graph_id RETURN n"
+    #     res = self.query(query, db, graph_id=id)
+    #     return res
