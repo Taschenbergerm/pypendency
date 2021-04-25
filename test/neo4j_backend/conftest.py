@@ -22,7 +22,7 @@ def neo_container():
         yield container
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def prepared_container(neo_container):
 
     cypher = pathlib.Path(__file__).parent / "create.cypher"
@@ -32,11 +32,70 @@ def prepared_container(neo_container):
             for query in cql.split(";")[:-1]:
                 session.run(query)
 
-    return neo_container
+    yield neo_container
+    with neo_container.get_driver() as driver:
+        with driver.session() as session:
+            cql = "MATCH (n) DETACH DELETE n"
+            session.run(cql)
+
 
 
 @pytest.fixture()
 def graph():
+    g = pmg.Graph("g1")
+    with g:
+        node1 = BaseNode("N1",
+                         slug="n1",
+                         type="Service",
+                         description="a Testnode")
+        node2 = BaseNode("N2",
+                         slug="n2",
+                         type="Service",
+                         description="a Testnode",
+                         expose=True)
+        node3 = BaseNode("E1",
+                         slug="e1",
+                         type="Service",
+                         description="a External Testnode",
+                         id="e1-n1",
+                         external=True)
+        node4 = BaseNode("F1",
+                         slug="e2",
+                         type="Service",
+                         description="a External Testnode",
+                         id="e2-n1",
+                         external=True)
+    node1 << node2 << node4
+    node2 >> node3
+    return g
+
+
+@pytest.fixture()
+def new_graph():
+    g = pmg.Graph("g2")
+    with g:
+        node1 = BaseNode("N1",
+                         slug="n1",
+                         type="Service",
+                         description="a Testnode")
+        node2 = BaseNode("N2",
+                         slug="n2",
+                         type="Service",
+                         description="a Testnode")
+        node3 = BaseNode("E1",
+                         slug="e1",
+                         type="Service",
+                         description="a External Testnode",
+                         id="e1-n1",
+                         external=True)
+
+    node1 << node2 << node4
+    node2 >> node3
+    return g
+
+
+@pytest.fixture()
+def modified_graph():
     g = pmg.Graph("g1")
     with g:
         node1 = BaseNode("N1",
@@ -69,7 +128,7 @@ def backend_instance(prepared_container):
     creds = Credentials(uri=f"bolt://localhost:{prepared_container.get_exposed_port(prepared_container.bolt_port)}",
                         user=prepared_container.NEO4J_USER,
                         password=prepared_container.NEO4J_ADMIN_PASSWORD)
-    neo = Neo4jBackend(FakeGraph, creds)
+    neo = Neo4jBackend(creds)
     return neo
 
 

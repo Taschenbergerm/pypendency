@@ -16,7 +16,7 @@ def test_query(prepared_container):
     creds = Credentials(uri=f"bolt://localhost:{prepared_container.get_exposed_port(prepared_container.bolt_port)}",
                         user=prepared_container.NEO4J_USER,
                         password=prepared_container.NEO4J_ADMIN_PASSWORD)
-    neo = Neo4jBackend(FakeGraph, creds)
+    neo = Neo4jBackend(creds)
     with graph_storage(creds) as db:
         res = neo.query("MATCH (n) -[r]-> (m) RETURN n,m,r", db)
     pytest.assume(res)
@@ -85,7 +85,7 @@ def test_cypher_queries_all_relations(project_id, want, backend_instance, db):
     pytest.assume(len(res) == 2*want)
 
 
-def test_cypher_queries_update_node(node_id, want, backend_instance, db):
+def test_cypher_queries_update_node(backend_instance, db):
     node_id = "g1-n1"
     want = "Updated Desc"
     backend_instance.query(CypherDialect.UPDATE_NODE, db, id=node_id, description=want, expose="true")
@@ -94,7 +94,7 @@ def test_cypher_queries_update_node(node_id, want, backend_instance, db):
     pytest.assume(new_desc == want)
 
 
-def test_cypher_queries_delete_node(node_id, want, backend_instance, db):
+def test_cypher_queries_delete_node(backend_instance, db):
     node_id = "g1-n1"
     want = "Updated Desc"
     backend_instance.query(CypherDialect.UPDATE_NODE, db, id=node_id, description=want, expose="true")
