@@ -47,7 +47,7 @@ class BaseNode(Generic[T]):
         elif not id and self.external:
             raise NodeError(f"External node {self.name} defined without ID")
         else:
-            logger.debug(f"Node {self.__repr__}created as internal and with existing ID")
+            logger.debug(f"Node {self.__repr__()} created as internal and with existing ID")
 
     def edge_from(self, other: "BaseNode[T]", label: str = "Depends"):
         relation = Relation(
@@ -88,7 +88,7 @@ class BaseNode(Generic[T]):
         return self.id >= other.id
 
     def __gt__(self, other):
-            return  self.id > other.id
+        return self.id > other.id
 
     def __repr__(self):
         return f"Node<{self.id}>"
