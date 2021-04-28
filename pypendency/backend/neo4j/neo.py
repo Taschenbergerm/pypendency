@@ -8,6 +8,9 @@ def apply(func: Callable, iterable: Iterable, **kwargs):
     for i in iterable:
         func(i, **kwargs)
 
+class DependencyError(Exception):
+    pass
+
 
 class Neo4jBackend(object):
     """
@@ -36,23 +39,23 @@ class Neo4jBackend(object):
             if not exists:
                 apply(self.create_node, internal, db=db)
             else:
-                self.compare(internal, graph, db)
+                self.crud_nodes(internal, graph, db)
 
             apply(self.merge_relation, graph.relations, db=db)
 
-    def compare(self,internal_node: List[BaseNode], graph: Graph, db):
+    def crud_nodes(self,internal_node: List[BaseNode], graph: Graph, db):
         remote_nodes, relations = self.query_owned(graph.id, db)
         local_ids = {node.id: node for node in internal_node}
-        remote_ids = {node.id: node for node in remote_nodes}
+        remote_ids = {node["id"]: node for _, node in remote_nodes.items()}
         new_nodes = local_ids.keys() - remote_ids.keys()
         deleted_nodes = remote_nodes.keys() - local_ids.keys()
         existing = set(local_ids.keys()).intersection(remote_ids.keys())
-        self.create_nodes(new_nodes, local_ids)
-        self.update_nodes(existing, local_ids)
-        apply(self.deleted_node, deleted_nodes, db=db)
+        self.create_nodes(new_nodes, local_ids, db)
+        self.update_nodes(existing, local_ids,db)
+        apply(self.save_delete, deleted_nodes, project_id=graph.id, db=db)
 
     def query_owned(self, id: str, db) -> Tuple[Set, Set]:
-        result = self.query(CypherDialect.ALL_NODES, db, id=id)
+        result = self.query(CypherDialect.OWNED_NODES, db, id=id)
         node_ids = self.__unwrap_nodes(result)
         result = self.query(CypherDialect.NODES_AND_RELATIONS, db, id=id)
         node_relations = {(res["n"]["id"], res["m"]["id"], res["r"][1]) for res in result }
@@ -103,6 +106,10 @@ class Neo4jBackend(object):
         delete_kwargs = {"id": node_id}
         self.query(CypherDialect.DELETE_NODE, db, **delete_kwargs)
 
+    def detach_node(self, node_id, db):
+        delete_kwargs = {"id": node_id}
+        self.query(CypherDialect.DETACH_NODE, db, **delete_kwargs)
+
     def merge_relation(self, relation: Relation, db):
         merge_kwargs ={"from_id": relation.origin.id, "to_id": relation.destination.id}
         self.query(CypherDialect.MERGE_RELATION, db, **merge_kwargs)
@@ -123,11 +130,11 @@ class Neo4jBackend(object):
                 internal.append(node)
         return internal, external
 
-    # def query_relation(self, from_id, to_id, db):
-    #     res = self.query(CypherDialect.NODES_AND_RELATIONS, db, from_id=from_id, to_id=to_id)
-    #     return res
-
-    # def query_node(self, id: str, db):
-    #     query = "MATCH (n) WHERE n.id=$id and n.graph.id=$graph_id RETURN n"
-    #     res = self.query(query, db, graph_id=id)
-    #     return res
+    def save_delete(self, id, project_id, db):
+        query = "MATCH (n {id: $id}) --> (m) WHERE m.project_id <> $project_id RETURN m.id"
+        nodes = self.query(query, db, id=id, project_id=project_id)
+        if nodes:
+            msg = f"Cannot savely delete {id} as {nodes} do depend on it"
+            raise DependencyError(msg)
+        else:
+            self.detach_node(id, db)

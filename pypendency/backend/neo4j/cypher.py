@@ -14,6 +14,7 @@ class CypherDialect:
     NODE_EXIST = "MATCH (n) WHERE n.id = $id RETURN n"
     NODES_AND_RELATIONS = "MATCH (n {project_id: $id})-[r]->(m) RETURN n,r,m"
     ALL_NODES = "MATCH (n {project_id: $id}), (n)-->(m) RETURN n, m "
+    OWNED_NODES = "MATCH (n {project_id: $id}) RETURN n"
     ALL_RELATIONS = "MATCH (n {project_id: $id})-[r]->(m) RETURN r"
     UPDATE_NODE = "MATCH (n) WHERE n.id = $id SET n.description = $description, n.expose = $expose"
     DELETE_NODE = "MATCH (n {id: $id}) DELETE n"

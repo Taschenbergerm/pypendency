@@ -34,7 +34,7 @@ def test_backend_graph_exists(project_id, want, creds, graph, db):
 def test_query_owned(creds, graph, db):
     neo = Neo4jBackend(credentials=creds)
     nodes, relations = neo.query_owned(graph.id, db)
-    pytest.assume(len(nodes) == 3)
+    pytest.assume(len(nodes) == 2)
     pytest.assume(len(relations) == 2)
 
 
@@ -53,10 +53,9 @@ def test_neo4j_backend_query_owned(graph, db):
     neo = Neo4jBackend("")
     remote_nodes, relations = neo.query_owned(graph.id, db)
 
-    pytest.assume(len(remote_nodes) == 3)
+    pytest.assume(len(remote_nodes) == 2)
     pytest.assume(remote_nodes.get("g1-n1"))
     pytest.assume(remote_nodes.get("g1-n2"))
-    pytest.assume(remote_nodes.get("e1-n1"))
     pytest.assume(len(relations) == 2)
 
 
@@ -224,10 +223,196 @@ def test_neo4j_backend_merge_relation_existing_relation(graph, db):
     pytest.assume(res[0]["r"][1] == rel.label)
 
 
-def test_neo4j_backend_compare(creds, graph):
+def test_neo4j_backend_compare(graph, db):
     neo = Neo4jBackend("")
-    neo.com
+    internal, _= neo.split_nodes(graph)
+    neo.crud_nodes(internal, graph, db)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    pytest.assume(len(nodes_ids) == 5)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
 
-def test_neo4j_backend_manifest(creds, graph):
+    pytest.assume(len(relations_slugs) == 3)
+    pytest.assume("g1-n2-->g1-n1" in relations_slugs)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)
+
+
+def test_neo4j_backend_compare_new_graph(new_graph, db):
+    graph = new_graph
+    neo = Neo4jBackend("")
+    internal, _  = neo.split_nodes(graph)
+    neo.crud_nodes(internal, graph, db)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    pytest.assume(len(nodes_ids) == 7)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+    pytest.assume("g2-n1" in nodes_ids)
+    pytest.assume("g2-n2" in nodes_ids)
+
+
+def test_neo4j_backend_compare_modified_graph(modified_graph, db):
+    graph = modified_graph
+    neo = Neo4jBackend("")
+    internal, _  = neo.split_nodes(graph)
+    neo.crud_nodes(internal, graph, db)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    modifed_node_desciption = db.run("MATCH (n {id: $id}) RETURN n", id="g1-n2").data()[0]
+    pytest.assume(len(nodes_ids) == 5)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+
+    pytest.assume("a Testnode" not in modifed_node_desciption["n"]["description"])
+    pytest.assume("a modified Test Node" in modifed_node_desciption["n"]["description"])
+
+
+def test_neo4j_backend_compare_shortened_graph(shortened_graph, db):
+    graph = shortened_graph
+    neo = Neo4jBackend("")
+    internal, _ = neo.split_nodes(graph)
+    neo.crud_nodes(internal, graph, db)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    pytest.assume(len(nodes_ids) == 4)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+
+def test_neo4j_backend_compare_extended_graph(extended_graph, db):
+    graph = extended_graph
+    neo = Neo4jBackend("")
+    internal, _ = neo.split_nodes(graph)
+    neo.crud_nodes(internal, graph, db)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    pytest.assume(len(nodes_ids) == 6)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+    pytest.assume("g1-n3" in nodes_ids)
+
+
+def test_neo4j_backend_manifest(creds, graph, db):
     neo = Neo4jBackend(creds)
     neo.manifest(graph)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    pytest.assume(len(nodes_ids) == 5)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+
+    pytest.assume(len(relations_slugs) == 3)
+    pytest.assume("g1-n2-->g1-n1" in relations_slugs)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)
+
+
+def test_neo4j_backend_manifest_modified_graph(creds, modified_graph, db):
+    neo = Neo4jBackend(creds)
+    neo.manifest(modified_graph)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    modifed_node = db.run("MATCH (n {id : $id}) RETURN n", id="g1-n2").data()
+    pytest.assume(len(nodes_ids) == 5)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+
+    pytest.assume(len(relations_slugs) == 3)
+    pytest.assume("g1-n2-->g1-n1" in relations_slugs)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)
+
+
+    pytest.assume("a Testnode" not in modifed_node[0]["n"]["description"])
+    pytest.assume("a modified Test Node" in modifed_node[0]["n"]["description"])
+
+
+def test_neo4j_backend_manifest_new_graph(creds, new_graph, db):
+    neo = Neo4jBackend(creds)
+    neo.manifest(new_graph)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    pytest.assume(len(nodes_ids) == 7)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+    pytest.assume("g2-n1" in nodes_ids)
+    pytest.assume("g2-n2" in nodes_ids)
+
+    pytest.assume(len(relations_slugs) == 5)
+    pytest.assume("g1-n2-->g1-n1" in relations_slugs)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)
+    pytest.assume("g2-n2-->g2-n1" in relations_slugs)
+    pytest.assume("g2-n2-->e1-n1" in relations_slugs)
+
+
+def test_neo4j_backend_manifest_shortened_graph(creds, shortened_graph, db):
+    neo = Neo4jBackend(creds)
+    neo.manifest(shortened_graph)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    pytest.assume(len(nodes_ids) == 4)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+
+    pytest.assume(len(relations_slugs) == 2)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)
+
+
+def test_neo4j_backend_manifest_extened_graph(creds, extended_graph, db):
+    neo = Neo4jBackend(creds)
+    neo.manifest(extended_graph)
+    nodes= db.run("MATCH (n) RETURN n.id").data()
+    nodes_ids = {node["n.id"]: node for node in nodes}
+    rels = db.run("MATCH (n)-[r]->(m) RETURN n.id,r,m.id ").data()
+    relations_slugs = [f"{rel['n.id']}-->{rel['m.id']}" for rel in rels]
+    pytest.assume(len(nodes_ids) == 6)
+    pytest.assume("xx" in nodes_ids)
+    pytest.assume("e1-n1" in nodes_ids)
+    pytest.assume("e2-n1" in nodes_ids)
+    pytest.assume("g1-n1" in nodes_ids)
+    pytest.assume("g1-n2" in nodes_ids)
+    pytest.assume("g1-n3" in nodes_ids)
+
+    pytest.assume(len(relations_slugs) == 4)
+    pytest.assume("g1-n2-->g1-n1" in relations_slugs)
+    pytest.assume("g1-n1-->g1-n3" in relations_slugs)
+    pytest.assume("g1-n2-->e1-n1" in relations_slugs)
+    pytest.assume("e2-n1-->g1-n2" in relations_slugs)

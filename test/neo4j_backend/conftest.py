@@ -89,7 +89,54 @@ def new_graph():
                          id="e1-n1",
                          external=True)
 
-    node1 << node2 << node4
+    node1 << node2
+    node2 >> node3
+    return g
+
+
+@pytest.fixture()
+def extended_graph():
+    g = pmg.Graph("g1")
+    with g:
+        node1 = BaseNode("N1",
+                         slug="n1",
+                         type="Service",
+                         description="a Testnode")
+        node2 = BaseNode("N2",
+                         slug="n2",
+                         type="Service",
+                         description="a Testnode")
+        node4 = BaseNode("N3",
+                         slug="n3",
+                         type="Service",
+                         description="a Testnode")
+        node3 = BaseNode("E1",
+                         slug="e1",
+                         type="Service",
+                         description="a External Testnode",
+                         id="e1-n1",
+                         external=True)
+
+    node4 << node1 << node2
+    node2 >> node3
+    return g
+
+
+@pytest.fixture()
+def shortened_graph():
+    g = pmg.Graph("g1")
+    with g:
+        node2 = BaseNode("N2",
+                         slug="n2",
+                         type="Service",
+                         description="a Testnode")
+        node3 = BaseNode("E1",
+                         slug="e1",
+                         type="Service",
+                         description="a External Testnode",
+                         id="e1-n1",
+                         external=True)
+
     node2 >> node3
     return g
 
@@ -105,7 +152,7 @@ def modified_graph():
         node2 = BaseNode("N2",
                          slug="n2",
                          type="Service",
-                         description="a Testnode")
+                         description="a modified Test Node")
         node3 = BaseNode("E1",
                          slug="e1",
                          type="Service",

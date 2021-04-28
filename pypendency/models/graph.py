@@ -2,7 +2,7 @@ import dataclasses
 from typing import List, Optional, TypeVar, Set
 
 Statement = TypeVar("Statement")
-BaseNode = TypeVar("BaseNode")
+BaseNode: BaseNode = TypeVar("BaseNode")
 Relation = TypeVar("Relation")
 
 
