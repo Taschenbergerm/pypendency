@@ -1,6 +1,6 @@
 import dataclasses
 import enum
-from typing import TypeVar, Optional, Generic, List, Union, Set
+from typing import TypeVar, Optional, Generic, Set
 
 from loguru import logger
 
