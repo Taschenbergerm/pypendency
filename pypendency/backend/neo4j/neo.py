@@ -86,7 +86,8 @@ class Neo4jBackend(object):
         return any(res)
 
     def create_node(self, node: BaseNode, db, temporary: bool = False):
-        query_kwargs = {"id": node.id, "name": node.name, "expose": node.expose, "domain": node.domain, "temporary": temporary}
+        query_kwargs = {"id": node.id, "name": node.name, "expose": node.expose,
+                        "domain": node.domain, "temporary": temporary, "project_id": node.graph.id}
         cql = CypherDialect.CREATE_NODE.substitute(type=node.type)
         self.query(cql, db, **query_kwargs)
 

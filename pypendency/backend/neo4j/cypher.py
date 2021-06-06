@@ -20,7 +20,8 @@ class CypherDialect:
     DELETE_NODE = "MATCH (n {id: $id}) DELETE n"
     DETACH_NODE = "MATCH (n {id: $id}) DETACH DELETE n"
     CREATE_NODE = CypherTemplate("""CREATE (n: §type
-                                {id: $id, name: $name, domain: $domain, expose: $expose, temporary: $temporary})
+                                {id: $id, name: $name, domain: $domain, expose: $expose,
+                                 temporary: $temporary, project_id: $project_id})
                                 """)
     MERGE_NODE = CypherTemplate("MERGE (a: §type { id: $id })")
     MERGE_RELATION = """MATCH (n {id: $from_id}),(m {id: $to_id}) MERGE (n)-[r:DEPENDS]->(m) RETURN r """

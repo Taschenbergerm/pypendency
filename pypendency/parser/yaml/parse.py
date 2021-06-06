@@ -1,7 +1,8 @@
 import pathlib
 from typing import Union
-
 import yaml
+
+
 from pypendency.models.graph import Graph
 from pypendency.models.generics import BaseNode
 from pypendency.generics import LexerInterface
@@ -36,12 +37,21 @@ class Parser(object):
     def _create_nodes_in_graph(self, raw_nodes, graph, external):
         with graph:
             for slug, node in raw_nodes.items():
+
+                if not ((node.get("name") and node.get("domain")) or node.get("id") ):
+                    raise ValueError(f"Node {slug} does either not have a proper id or name-domain combination")
+                elif not node.get("id"):
+                    node_id = f"{graph.id}-{node['name']}"
+                else:
+                    node_id = node.get("id")
+
                 node[slug] = BaseNode(
-                    node["name"],
+                    node.get("name"),
                     slug=slug,
-                    type=node["type"],
-                    domain=node["domain"],
-                    id=node["id"],
+                    type=node.get("type", "Service"),
+                    domain=node.get("domain"),
+                    id=node_id,
                     external=external,
                     description=node.get("description"),
+                    expose=node.get("expose", False)
                 )
